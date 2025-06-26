@@ -27,7 +27,7 @@ import torch
 
 # Load model using the static method approach
 llm = model.GPT2(vocab_size=toker.vocab_size,n_layers=3)
-ckpt = torch.load("checkpoints/epoch_24.pt", map_location="cpu",weights_only=False)
+ckpt = torch.load("checkpoints/epoch_12.pt", map_location="cpu",weights_only=False)
 llm.load_state_dict(ckpt["model_state"])
 llm.eval()  # Set to evaluation mode
 

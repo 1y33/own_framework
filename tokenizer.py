@@ -27,3 +27,23 @@ def get_tokenizer_properties(tokenizer: AutoTokenizer):
         'padding_side': tokenizer.padding_side,
         'truncation_side': tokenizer.truncation_side
     }
+
+def to_chat_text(tokenizer,system_message,input,reasoining,output, *, add_generation_prompt=False) -> str:
+
+    assistant_content = ""
+    if reasoining:
+        assistant_content += f"<thinking>{reasoining}</thinking>"
+    assistant_content += output
+
+    messages = [
+        {"role": "system",     "content": system_message},
+        {"role": "user",       "content": input},
+        {"role": "assistant",  "content": assistant_content},
+    ]
+
+    return tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=add_generation_prompt
+    )
+

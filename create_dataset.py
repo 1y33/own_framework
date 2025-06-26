@@ -1,6 +1,8 @@
 import torch
 from torch.utils.data import Dataset
 from typing import Iterable, List, Sequence
+from tokenizer import to_chat_text
+
 
 
 class TextDataset(Dataset):
@@ -15,6 +17,8 @@ class TextDataset(Dataset):
         
         self.tokenizer = tokenizer
         self.seq_len = seq_len
+                
+        # texts = [to_chat_text(text) for text in texts]
         
         if add_eos and tokenizer.eos_token:
             texts = [t + tokenizer.eos_token for t in texts]

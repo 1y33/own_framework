@@ -77,7 +77,6 @@ def clean_text(text: str) -> str:
         line = re.sub(r'[ \t]+', ' ', line)
         good_lines.append(line)
     
-    # Join with spaces (not newlines) for continuous text
     
     text = re.sub(r'\s+', ' ', text)
     
