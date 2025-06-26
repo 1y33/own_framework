@@ -27,12 +27,12 @@ import torch
 
 # Load model using the static method approach
 from transformers import AutoModelForCausalLM
-teacher_model = AutoModelForCausalLM.from_pretrained("RWKV/RWKV7-Goose-World2.8-0.1B-HF",trust_remote_code=True)
+toker = tokenizer.get_tokenizer("RWKV/RWKV7-Goose-World2.8-0.1B-HF")
 
-llm = model.GPT2(vocab_size=teacher_model.config.vocab_size,n_layers=3,d_model=512)
-ckpt = torch.load("checkpoints/epoch_10.pt", map_location="cpu",weights_only=False)
+llm = model.GPT2(vocab_size=toker.vocab_size,n_layers=6,d_model=512)
+ckpt = torch.load("gpt_training_1/epoch_19.pt", map_location="cpu",weights_only=False)
 llm.load_state_dict(ckpt["model_state"])
-llm.eval()  # Set to evaluation mode
+llm.eval()
 
 # Text generation function
 def generate_text(model, tokenizer, prompt, max_length=100, temperature=1.0, top_k=50):
@@ -72,17 +72,17 @@ def generate_text(model, tokenizer, prompt, max_length=100, temperature=1.0, top
     return generated_text
 
 prompt = "Once upon a time"
-generated = generate_text(llm, toker, prompt, max_length=50, temperature=0.8)
+generated = generate_text(llm, toker, prompt, max_length=50, temperature=0.3)
 print(f"Prompt: {prompt}")
 print(f"Generated: {generated}")
 
 prompts = [
-    "The fourier",
+    "The fourier of the transform x(t) = 1(t) is ",
     "Machine Learning is ",
-    "GPU code"
+    "GPU code",
 ]
 
 for prompt in prompts:
-    generated = generate_text(llm, toker, prompt, max_length=30, temperature=0.7)
+    generated = generate_text(llm, toker, prompt, max_length=30, temperature=0.3)
     print(f"\nPrompt: {prompt}")
     print(f"Generated: {generated}")
