@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn
 import math
 
+##
+## Simple Model
+## 
+
 class GPT2(nn.Module):
     def __init__(self, vocab_size, d_model=512, n_heads=8, n_layers=6, max_seq_len=1024):
         super().__init__()
@@ -68,7 +72,7 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
         
-        att = torch.scaled_dot_product_attention(q, k, v, is_causal=True)
+        att = torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
         
         att = att.transpose(1, 2).contiguous().view(B, T, C)
         

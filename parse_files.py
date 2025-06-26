@@ -2,6 +2,7 @@ import torch
 import os
 from pathlib import Path
 
+
 def parse_folder(directory: str):
     """Returns all files in the directory recursively"""
     path = Path(directory)
@@ -11,6 +12,7 @@ def parse_folder(directory: str):
             files.append(file_path)  # Keep as Path object
     return files
     
+
 def get_suffix(files, suffix):
     """Filter files by suffix"""
     suffix_files = []
@@ -19,17 +21,19 @@ def get_suffix(files, suffix):
             suffix_files.append(file)
     return suffix_files
 
+
 def parse_txt(file_paths):
     """Parse text files and return their content"""
     texts = []
     for file in file_paths:
         try:
             with open(file, "r", encoding="utf-8") as f:
-                texts.append(f.read())
+                texts.append(clean_text(f.read()))
         except Exception as e:
             print(f"Error reading {file}: {e}")
     return texts
             
+
 def parse_pdfs(file_paths):
     """Parse PDF files and return their text content"""
     import PyPDF3
@@ -41,15 +45,48 @@ def parse_pdfs(file_paths):
                 file_text = ""
                 for page in reader.pages:
                     file_text += page.extractText() or " "
-                text_chunks.append(file_text)
+                text_chunks.append(clean_text(file_text))
         except Exception as e:
             print(f"Error reading PDF {file}: {e}")
     return text_chunks
 
+
+
+def clean_text(text: str) -> str:
+    import re
+    
+    if not text:
+        return ""
+    
+    text = text.replace("\u00a0", " ")
+    
+    lines = text.splitlines()
+    good_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        if len(line) <= 2:
+            continue
+            
+        if len(line) < 10 and line.isupper():
+            continue
+            
+        line = re.sub(r'[ \t]+', ' ', line)
+        good_lines.append(line)
+    
+    # Join with spaces (not newlines) for continuous text
+    
+    text = re.sub(r'\s+', ' ', text)
+    
+    text = re.sub(r'\b([A-Z])\s+([A-Z])\s+([A-Z])', r'\1\2\3', text)
+    
+    return text.strip()
+
+
 def parse_directory(directory: str):
-    """
-    Main function to parse a directory and extract text from all supported files
-    """
     all_files = parse_folder(directory)
     
     txt_files = get_suffix(all_files, "txt")
@@ -69,6 +106,7 @@ def parse_directory(directory: str):
     
     return all_texts
 
+
 def count_words(texts):
     """
     Count all words from a list of text strings
@@ -82,11 +120,8 @@ def count_words(texts):
     total_chars = 0
     
     for text in texts:
-        # Clean and split text into words
-        # Remove punctuation and convert to lowercase
         words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
         
-        # Update counters
         word_counts.update(words)
         total_words += len(words)
         total_chars += len(text)
@@ -99,6 +134,7 @@ def count_words(texts):
         'most_common': word_counts.most_common(10)
     }
 
+
 def print_word_statistics(word_stats):
     """Print formatted word statistics"""
     print(f"\n--- WORD STATISTICS ---")
@@ -109,10 +145,17 @@ def print_word_statistics(word_stats):
     for i, (word, count) in enumerate(word_stats['most_common'], 1):
         print(f"{i:2d}. {word:<15} {count:,} times")
 
-# if __name__ == "__main__":
-#     directory = "director_random" 
-#     texts = parse_directory(directory)
-#     print(f"Extracted text from {len(texts)} files")
+
+if __name__ == "__main__":
+    directory = "director_random" 
+    texts = parse_directory(directory)
+    print(f"Extracted text from {len(texts)} files")
     
-#     word_stats = count_words(texts)
-#     print_word_statistics(word_stats)
+    word_stats = count_words(texts)
+    print_word_statistics(word_stats)
+
+    print(len(texts))
+    if texts:
+        print(f"\nSample cleaned text (first 200 chars):")
+        print(repr(texts[1][:200]))
+    
