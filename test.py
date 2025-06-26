@@ -2,6 +2,8 @@ import parse_files
 import create_dataset
 import tokenizer
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 directory =  "director_random"
 
@@ -9,7 +11,7 @@ texts = parse_files.parse_directory(directory)
 word_count = parse_files.count_words(texts)
 word_stats = parse_files.print_word_statistics(word_count)
 
-toker = tokenizer.get_tokenizer("Qwen/Qwen2.5-0.5B")
+toker = tokenizer.get_tokenizer("RWKV/RWKV7-Goose-World2.8-0.1B-HF")
 ds = create_dataset.TextDataset(texts=texts,tokenizer=toker)
 
 import model
@@ -85,10 +87,10 @@ class KDL(trainer.Trainer):
 # language_trainer = LanguageModelTrainer(run_name="gpt_training_1",cfg=configuration)
 # language_trainer.fit()
 
-teacher_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-0.5B")
+teacher_model = AutoModelForCausalLM.from_pretrained("RWKV/RWKV7-Goose-World2.8-0.1B-HF",trust_remote_code=True)
 teacher_model.to("cuda")
 
-llm = model.GPT2(vocab_size=teacher_model.config.vocab_size,n_layers=2,d_model=256)
+llm = model.GPT2(vocab_size=teacher_model.config.vocab_size,n_layers=3,d_model=512)
 configuration = trainer.Config(model=llm, train_dataset=ds, epochs=10, batch_size=1, lr=1e-5)
 
 kdl_trainer = KDL(run_name="kdl_training", cfg=configuration, teacher_model=teacher_model)

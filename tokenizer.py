@@ -9,8 +9,8 @@ import json
 
 def get_tokenizer(name :str = None):
     if name == None :
-        return AutoTokenizer.from_pretrained("openai-community/gpt2")
-    return AutoTokenizer.from_pretrained(name)
+        return AutoTokenizer.from_pretrained("openai-community/gpt2",trust_remote_code=True)
+    return AutoTokenizer.from_pretrained(name,trust_remote_code=True)
 
 
 def get_tokenizer_properties(tokenizer: AutoTokenizer):

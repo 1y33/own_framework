@@ -2,7 +2,7 @@ import parse_files
 import create_dataset
 import tokenizer
 
-toker = tokenizer.get_tokenizer()
+toker = tokenizer.get_tokenizer("RWKV/RWKV7-Goose-World2.8-0.1B-HF")
 
 import model
 import trainer
@@ -26,8 +26,11 @@ import torch
 #         return loss
 
 # Load model using the static method approach
-llm = model.GPT2(vocab_size=toker.vocab_size,n_layers=3)
-ckpt = torch.load("checkpoints/epoch_12.pt", map_location="cpu",weights_only=False)
+from transformers import AutoModelForCausalLM
+teacher_model = AutoModelForCausalLM.from_pretrained("RWKV/RWKV7-Goose-World2.8-0.1B-HF",trust_remote_code=True)
+
+llm = model.GPT2(vocab_size=teacher_model.config.vocab_size,n_layers=3,d_model=512)
+ckpt = torch.load("checkpoints/epoch_10.pt", map_location="cpu",weights_only=False)
 llm.load_state_dict(ckpt["model_state"])
 llm.eval()  # Set to evaluation mode
 
