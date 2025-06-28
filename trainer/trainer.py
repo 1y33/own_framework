@@ -87,11 +87,11 @@ class Trainer:
         
         return DataLoader(
             dataset,
-            batch_size=         self.cfg.batch_size,
-            shuffle=            train and self.cfg.shuffle,
-            num_workers=        self.cfg.num_workers,
-            pin_memory=         self.cfg.pin_memory,
-            persistent_workers= self.cfg.num_workers > 0,
+            batch_size=self.cfg.batch_size,
+            shuffle=train and self.cfg.shuffle,
+            num_workers=self.cfg.num_workers,
+            pin_memory=self.cfg.pin_memory,
+            persistent_workers=self.cfg.num_workers > 0,
         )
 
     def _init_optimizer(self) -> optim.Optimizer:
