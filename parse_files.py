@@ -158,3 +158,16 @@ if __name__ == "__main__":
         print(f"\nSample cleaned text (first 200 chars):")
         print(repr(texts[1][:200]))
     
+    
+# Error reading PDF director_random/others/Instrument Engineers Handbook, Volume 3 Process Software and Digital Networks, Fourth Edition (Volume 3).pdf: Stream has ended unexpectedly
+# PdfReadWarning: Xref table not zero-indexed. ID numbers for objects will be corrected. [pdf.py:1865]
+# Error reading PDF director_random/books/Pattern Recognition, Bishop.pdf: Unexpected escaped string: b'y'
+# PdfReadWarning: Superfluous whitespace found in object header b'\xf9z\xceh\xcbK\x1bW\x95>\xd1\x1d\xb2@1GG\xe5](\xb0\xe4\x87\xfeF7\xf5\xc6\x82\xf1\x14\xc6\x1f,iQ\xd7\x8a\xd2\xbf\xf1a\xfe\xb8\xd2-\x1c\x9e[\xd2\xe8\x19W\xe2\xed\xfb\xc3\xfdrT\x16\xd9\x0e\x87\xa0X\x97\x92\xa8~\xc8\xfd\xa3\xe3\x8c\x05\xa8{o\x97\xbf.\xb4MGN[\xdb\x88\x1d\xa5%\xf7\x128\xe8H\x1d\x0elp\xe1\x89\x8d\xb7DXb\xf2\xf9_M\xb6_U\xd0\xa0\xe9Vr\x07\xe2r\xbe\x00\xb4\x81}\'K\x07\xe1+O\xf8\xc9\xfd\xb8\xd0H\x01\xbf\xd1\x1aa\xf0\xff\x00\x91\x87\xfa\xe3Ah6\xban\x9f\x0e\xd1\x91\xbf_\x8f\xfbq\x00)^"\xb5_\x842\xd3\xfdl\x92\xa3m,m.\x89QF\xa0\xae\xcd\xfd0\x04\x90\x90jj\xd6\x97f\xde\xd8\x11\x18\xe3M\xab\xd4x\xe4J\x194\xd6K*\xf1*O\xdf\x93!4\xa0\x9ae\xaa\x8aL8\xb7\x81jm\x82\x90B\x07\xd1\xb4\xe4G%\xa5\x7f\x9b\x1bP\xbf\xd0\xb4\xfee\xff\x00\x82\xc1i\xa0\xb4\xdb\xd9\xff\x002\xff\x00\xc1\xff\x00n6\x8a' b'' [pdf.py:1790]
+# Error reading PDF director_random/books/Artificial Neural Networks and Machine Learning – ICANN 2018_ 27th International Conference on Artificial Neural Networks, Rhodes, Greece, October 4-7, 2018, Proceedings, Part I ( PDFDrive ).pdf: invalid literal for int() with base 10: b'\xf9z\xceh\xcbK\x1bW\x95>\xd1\x1d\xb2@1GG\xe5](\xb0\xe4\x87\xfeF7\xf5\xc6\x82\xf1\x14\xc6\x1f,iQ\xd7\x8a\xd2\xbf\xf1a\xfe\xb8\xd2-\x1c\x9e[\xd2\xe8\x19W\xe2\xed\xfb\xc3\xfdrT\x16\xd9\x0e\x87\xa0X\x9
+# Error reading PDF director_random/books/Valliappa Lakshmanan, Marco Tranquillin, Firat Tekiner - Architecting Data and Machine Learning Platforms_ Enable Analytics and AI-Driven Innovation in the Cloud-O'Reilly Media (2023).pdf: '/Contents'
+# Error reading PDF director_random/books/V Kishore Ayyadevara, Yeshwanth Reddy - Modern Computer Vision with PyTorch_ A Practical Roadmap From Deep Learning Fundamentals to Advanced Applications and Generative AI, 2nd Edition-Packt Publishin.pdf: EOF marker not found
+# Error reading PDF director_random/books/Architecting_Data_and_Machine_Learning_Platforms.pdf: '/Contents'
+# Error reading PDF director_random/books/Eric Matthes - Python Crash Course-No Starch Press (2023).pdf: '/Contents'
+# Error reading PDF director_random/books/(Adaptive Computation and Machine Learning series) Bengio, Yoshua_ Courville, Aaron_ Goodfellow, Ian J - Deep learning_ adaptive computation and machine learning-The MIT Press (2016).pdf: Stream has ended unexpectedly
+# Error reading PDF director_random/books/Michael Munn, David Pitman - Explainable AI for Practitioners_ Designing and Implementing Explainable ML Solutions-O'Reilly Media (2022).pdf: '/Contents'
+# Extracted text from 105 files
