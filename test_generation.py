@@ -5,7 +5,7 @@ import tokenizer
 toker = tokenizer.get_tokenizer("RWKV/RWKV7-Goose-World2.8-0.1B-HF")
 
 import model
-import trainer
+import trainer.trainer as trainer
 import torch
 
 # class LanguageModelTrainer(trainer.Trainer):
@@ -30,9 +30,25 @@ from transformers import AutoModelForCausalLM
 toker = tokenizer.get_tokenizer("RWKV/RWKV7-Goose-World2.8-0.1B-HF")
 
 llm = model.GPT2(vocab_size=toker.vocab_size,n_layers=6,d_model=512)
-ckpt = torch.load("gpt_training_1/epoch_19.pt", map_location="cpu",weights_only=False)
+ckpt = torch.load("gpt_1024stride/epoch_3.pt", map_location="cpu",weights_only=False)
 llm.load_state_dict(ckpt["model_state"])
 llm.eval()
+
+
+def generate_text(model,tokenizer,prompt,max_length):
+    input_ids  = tokenizer.encode(prompt)
+    with torch.inference_mode():
+        for _ in range(max_length):
+            logits = model(input_ids)
+            next_token = logits[0,-1,:]
+            
+            probs = torch.sofmtax(next_token,dim=-1)
+            next_token = torch.multinomial(probs,num_samples=1)
+            input_ids = torch.cat([input_ids,next_token])
+            
+            
+    generated_text = tokenizer.decode(input_ids)
+    return generate_text
 
 # Text generation function
 def generate_text(model, tokenizer, prompt, max_length=100, temperature=1.0, top_k=50):
