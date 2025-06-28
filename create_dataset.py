@@ -3,6 +3,8 @@ from torch.utils.data import Dataset
 from typing import Iterable, List, Sequence
 from tokenizer import to_chat_text
 from typing import List, Union, Optional
+import time
+from tqdm import tqdm
 
 
 
@@ -80,7 +82,7 @@ def create_prompt_message(
     for i in range(len(input_message)):
         messages.append(_formatted_message("user", input_message[i]))
         if reasoning_messages is not None:
-            messages.append(_formatted_message("assistant", reasoning_messages[i]))
+            messages.append(_formatted_message("assistant", f"<thinking>{reasoning_messages[i]}</thinking>"))
         messages.append(_formatted_message("assistant", output_message[i]))
 
     return messages
@@ -89,7 +91,24 @@ def tokenize_message(tokenizer,message):
     '''
     Return the message with the tokenization of the model
     '''    
-    return tokenizer.apply_chat_template(message)
+    return tokenizer.apply_chat_template(message,tokenize=False)
+
+def map_dataset_to_conversation(hugginface_datatest,
+                                input_collumn,
+                                output_collumn,
+                                reasoning_collumn=False)->List:
+    
+    def row_to_conv(example):
+        conv = {
+            "inputs" : example[input_collumn],
+            "outputs" : example[output_collumn]
+        }
+        if reasoning_collumn and reasoning_collumn in example and example[reasoning_collumn] is not None:
+            conv["reasoning"] = example[reasoning_collumn]
+
+        return conv
+    conversations = [row_to_conv(row) for row in hugginface_datatest]
+    return conversations
 
 class SFTDataset(TextDataset):
     '''
@@ -103,20 +122,24 @@ class SFTDataset(TextDataset):
         self,
         conversations: Sequence[dict],
         tokenizer,
+        system_message,
         *,
         seq_len: int = 1024,
         stride: int = 1,
         add_eos: bool = False,            
     ):
         rendered_texts: List[str] = []
-        for conv in conversations:
+        start_time = time.time()
+        for conv in tqdm(conversations, desc="Rendering conversations"):
             rendered_texts.append(
-                tokenize_message(tokenizer,create_prompt_message(
-                    system_message=conv["system"],
-                    inputs=conv["inputs"],
-                    outputs=conv["outputs"],
-                    reasoning=conv.get("reasoning"),))
+            tokenize_message(tokenizer, create_prompt_message(
+                system_message=system_message,
+                input_message=conv["inputs"],
+                output_message=conv["outputs"],
+                reasoning_messages=conv.get("reasoning"),))
             )
+        elapsed_time = time.time() - start_time
+        print(f"Rendered {len(rendered_texts)} conversations in {elapsed_time:.2f} seconds")
 
         super().__init__(
             texts=rendered_texts,
