@@ -4,6 +4,10 @@ import datetime
 import os
 import shutil
 from typing import Dict, Any, Optional
+import re
+
+ANSI_ESCAPE = re.compile(r'\x1b\[[0-9;]*m')
+
 
 class Colors:
     """ANSI color codes for terminal output"""
@@ -57,14 +61,22 @@ class TrainingLogger:
         except:
             return 80
     
+    def _strip_ansi(self, s: str) -> str:
+        """Remove ANSI escape sequences for length calculation"""
+        return ANSI_ESCAPE.sub('', s)
+
+    def _make_centered_text(self, text: str, color: str = Colors.WHITE, bg_color: str = "") -> str:
+        """Center text in terminal width"""
+        # Calculate padding based on actual display length (without ANSI codes)
+        display_length = len(self._strip_ansi(text))
+        padding = (self.terminal_width - display_length) // 2 
+        remaining_padding = self.terminal_width - display_length - padding
+        return f"{bg_color}{color}{' ' * padding}{text}{' ' * remaining_padding}{Colors.RESET}"
+
+    
     def _make_separator(self, char: str = "=", color: str = Colors.CYAN) -> str:
         """Create a full-width separator"""
         return f"{color}{char * self.terminal_width}{Colors.RESET}"
-    
-    def _make_centered_text(self, text: str, color: str = Colors.WHITE, bg_color: str = "") -> str:
-        """Center text in terminal width"""
-        padding = (self.terminal_width - len(text)) // 2
-        return f"{bg_color}{color}{' ' * padding}{text}{' ' * (self.terminal_width - len(text) - padding)}{Colors.RESET}"
     
     def _print_header(self):
         """Print training run header information"""
@@ -84,10 +96,17 @@ class TrainingLogger:
         self.logger.info(self._make_centered_text("🚀 TRAINING RUN STARTED 🚀", Colors.BOLD + Colors.WHITE, Colors.BG_BLUE))
         self.logger.info(self._make_separator("=", Colors.CYAN))
         
+        # Create the info line and center it properly
         info_line = f"{Colors.BOLD}Run:{Colors.RESET} {Colors.MAGENTA}{self.run_name}{Colors.RESET} | {Colors.BOLD}Device:{Colors.RESET} {device_color}{device_info}{Colors.RESET} | {Colors.BOLD}Date:{Colors.RESET} {Colors.CYAN}{date_str}{Colors.RESET}"
         
-        info_padding = (self.terminal_width - len(self.run_name) - len(device_info) - len(date_str) - 20) // 2  # Approximate
-        self.logger.info(f"{' ' * max(0, info_padding)}{info_line}")
+        # Use the updated _make_centered_text that handles ANSI codes properly
+        centered_info = self._make_centered_text(f"Run: {self.run_name} | Device: {device_info} | Date: {date_str}", Colors.WHITE, "")
+        
+        # Replace the plain text with the colored version
+        plain_info = f"Run: {self.run_name} | Device: {device_info} | Date: {date_str}"
+        colored_info = centered_info.replace(plain_info, info_line.replace(Colors.WHITE, "").replace(Colors.RESET, ""))
+        
+        self.logger.info(colored_info)
         self.logger.info(self._make_separator("=", Colors.CYAN))
     
     def log_model_info(self, model: torch.nn.Module, **kwargs):

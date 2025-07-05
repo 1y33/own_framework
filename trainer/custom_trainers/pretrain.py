@@ -6,10 +6,28 @@ class PreTrain(Trainer):
     def compute_loss(self, batch) -> torch.Tensor:
         input_ids = batch["input_ids"]
         labels = batch["labels"]
-        logits = self.model(input_ids)
         
-        shift_logits,shift_labels = shift_logits_labels(logits,labels)
-        loss = torch.nn.functional.cross_entropy(shift_logits, shift_labels)
+        
+        outputs = self.model(input_ids)
+        
+        # Extract logits from HuggingFace model output
+        if hasattr(outputs, 'logits'):
+            logits = outputs.logits
+        elif isinstance(outputs, dict) and 'logits' in outputs:
+            logits = outputs['logits']
+        else:
+            logits = outputs
+        
+        
+        shift_logits, shift_labels = shift_logits_labels(logits, labels)
+        
+        
+        mask = shift_labels != -100
+        if mask.sum() == 0:
+            return torch.tensor(0.0, device=shift_logits.device, requires_grad=True)
+        
+        
+        loss = torch.nn.functional.cross_entropy(shift_logits, shift_labels, ignore_index=-100)
         
         return loss
     
@@ -26,10 +44,27 @@ class KDL(Trainer):
         input_ids = batch["input_ids"]
         labels    = batch["labels"]
 
-        student_logits = self.model(input_ids) 
+        student_outputs = self.model(input_ids)
+        
+        # Extract logits from HuggingFace model output for student
+        if hasattr(student_outputs, 'logits'):
+            student_logits = student_outputs.logits
+        elif isinstance(student_outputs, dict) and 'logits' in student_outputs:
+            student_logits = student_outputs['logits']
+        else:
+            # Fallback: assume outputs is the logits tensor directly
+            student_logits = student_outputs
 
         with torch.no_grad():
-            teacher_logits = self.teacher_model(input_ids)["logits"]
+            teacher_outputs = self.teacher_model(input_ids)
+            # Extract logits from HuggingFace model output for teacher
+            if hasattr(teacher_outputs, 'logits'):
+                teacher_logits = teacher_outputs.logits
+            elif isinstance(teacher_outputs, dict) and 'logits' in teacher_outputs:
+                teacher_logits = teacher_outputs['logits']
+            else:
+                # Fallback: assume outputs is the logits tensor directly
+                teacher_logits = teacher_outputs
             
         flat_s,flat_t,flat_l = shift_logits_labels([student_logits,teacher_logits], labels)
 

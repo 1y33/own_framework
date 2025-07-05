@@ -4,19 +4,11 @@ import create_dataset
 import os
 import tokenizer
 from models import GPT2
-from trainer import Trainer, Config,shift_logits_labels
+from trainer import PreTrain,Config
 import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-class PreTrain(Trainer):
-    def compute_loss(self, batch) -> torch.Tensor:
-        input_ids = batch["input_ids"]
-        labels = batch["labels"]
-        logits = self.model(input_ids)
-        
-        shift_logits,shift_labels = shift_logits_labels(logits,labels)
-        loss = torch.nn.functional.cross_entropy(shift_logits, shift_labels)
-        
-        return loss
+
     
 SYS_MSG = """
 You are MathReasoner-GPT, a large language model specializing in problem-solving and proof-writing across all branches of mathematics.
@@ -37,7 +29,13 @@ You are MathReasoner-GPT, a large language model specializing in problem-solving
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 hugginface_ds = load_dataset("notbadai/math_reasoning", split="train")
-hugginface_ds = hugginface_ds.select(range(100))  
+hugginface_ds = hugginface_ds.select(range(10000))  
+
+
+
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
+
 
 convs = create_dataset.map_dataset_to_conversation(
     hugginface_ds,
@@ -45,22 +43,19 @@ convs = create_dataset.map_dataset_to_conversation(
     output_collumn="answer",
     reasoning_collumn="reasoning"
 )
-
-toker = tokenizer.get_tokenizer("RWKV/RWKV7-Goose-World2.8-0.1B-HF")
-
-
 sft_ds = create_dataset.SFTDataset(
     conversations=convs,
     system_message=SYS_MSG,
-    tokenizer=toker,
+    tokenizer=tokenizer,
     seq_len=1024,
     stride=1024
 )
-
-
-llm = GPT2(vocab_size=toker.vocab_size,n_layers=6,d_model=512,max_seq_len=1024)
-
-configuration = Config(model=llm, train_dataset=sft_ds, epochs=10, batch_size=1, lr=1e-3,save_dir="gpt_reasoning_please")
-
-sft_trainer = PreTrain(run_name = "gpt_reasoning_please",cfg=configuration)
+configuration = Config(model=model,train_dataset=sft_ds, epochs=10)   #batch_size=16,lr=5e-5,save_dir="ReasoningMathQwen")
+sft_trainer = PreTrain(run_name="ReasoningMathQwen",cfg=configuration)
 sft_trainer.fit()
+
+
+
+
+model.save_pretrained("HugginfaceReaasoner")
+

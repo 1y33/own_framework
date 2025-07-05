@@ -130,6 +130,8 @@ class Trainer:
         self.scaler.update()
         self.optimizer.zero_grad(set_to_none=True)
 
+        # Step the scheduler after optimizer step
+
         self.global_step += 1
         return loss.detach()
 
@@ -156,12 +158,13 @@ class Trainer:
             val_loss = self.validate() if self.valid_loader else None
 
             if val_loss == None:
-                self.logger.log_epoch(epoch,epoch_loss,perplexity=math.exp(epoch_loss/len(self.train_loader)))
+                self.logger.log_epoch(epoch,epoch_loss,perplexity=math.exp(epoch_loss))
             else:
-                self.logger.log_epoch(epoch,epoch_loss,perplexity=math.exp(epoch_loss/len(self.train_loader)),Val_Loss = val_loss)
+                self.logger.log_epoch(epoch,epoch_loss,perplexity=math.exp(epoch_loss),Val_Loss = val_loss)
 
             if self.scheduler:
                 self.scheduler.step()
+
 
             if epoch % self.cfg.save_every_n_epochs == 0:
                 self.save_checkpoint(f"epoch_{epoch}.pt")
