@@ -1,11 +1,9 @@
 from datasets import load_dataset
 import create_dataset
 
-
-
 import os
 import tokenizer
-import model
+import models.model as model
 from trainer import Trainer, Config,shift_logits_labels
 import torch
 
@@ -61,7 +59,7 @@ sft_ds = create_dataset.SFTDataset(
 
 
 llm = model.GPT2(vocab_size=toker.vocab_size,n_layers=6,d_model=512,max_seq_len=1024)
-# ckpt = torch.load("gpt_training_1/epoch_19.pt", map_location="cuda",weights_only=False)
+# c kpt = torch.load("gpt_training_1/epoch_19.pt", map_location="cuda",weights_only=False)
 # llm.load_state_dict(ckpt["model_state"])
 
 configuration = Config(model=llm, train_dataset=sft_ds, epochs=10, batch_size=1, lr=1e-3,save_dir="gpt_reasoning_please")

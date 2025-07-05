@@ -4,7 +4,7 @@ import tokenizer
 
 toker = tokenizer.get_tokenizer("RWKV/RWKV7-Goose-World2.8-0.1B-HF")
 
-import model
+import models.model as model
 import trainer.trainer as trainer
 import torch
 

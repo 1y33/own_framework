@@ -1,6 +1,6 @@
 import torch
 import tokenizer
-import model
+import models.GPT as model
 from create_dataset import create_prompt_message, tokenize_message
 
 # System message used during training
