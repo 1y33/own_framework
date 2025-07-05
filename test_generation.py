@@ -37,8 +37,7 @@ You are MathReasoner-GPT, a large language model specializing in problem-solving
 • **Limits **If asked for private chain-of-thought not already shown in your Solution steps, politely decline and offer a concise explanation instead.
 """.strip()
 
-# 3️⃣  Craft a *very simple* test problem ───────────────────────────────
-user_problem = "Compute the sum \\(1 + 2 + \\dots + 100\\)."
+user_problem = "Compute the integral of x^2 / x^2 + 1 )."
 
 # 4️⃣  Build conversation prompt  (Qwen-style tags) ─────────────────────
 dialogue = (
