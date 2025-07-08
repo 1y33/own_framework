@@ -216,7 +216,7 @@ class MLA(nn.Module):
             if mask is not None:
                 scores += mask.unsqueeze(1)
 
-            scores = scores.softmax(dim=-1, dtype=torch.float32).type_as(x)
+            scores = scores.softmax(dim=-1, dtype=torch.float32).type_as(x)         
             out = torch.einsum("bsht,bthd->bshd", scores, self.v_cache[:bsz, :end_pos])
 
         else:
