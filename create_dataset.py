@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 from typing import Iterable, List, Sequence
 from tokenizer import to_chat_text
-from typing import List, Union, Optional
+from typing import Sequence, List, Optional, Union, Dict
 import time
 from tqdm import tqdm
 
@@ -148,3 +148,113 @@ class SFTDataset(TextDataset):
             stride=stride,
             add_eos=add_eos,
         )
+        
+from torch.utils.data import IterableDataset, get_worker_info
+from datasets import IterableDataset as HFIterableDataset 
+
+class StreamingTextDataset(IterableDataset):
+    def __init__(
+        self,
+        hf_ds_iter: "HFIterableDataset",
+        tokenizer,
+        *,
+        seq_len: int = 1024,
+        stride: int = 1,
+        add_eos: bool = True,
+        text_column: str = "text",
+    ):
+        self.dataset   = hf_ds_iter
+        self.tokenizer = tokenizer
+        self.seq_len   = seq_len
+        self.stride    = stride
+        self.add_eos   = add_eos
+        self.text_col  = text_column
+
+    def _tokenise_and_yield(self, text: str):
+        if self.add_eos and self.tokenizer.eos_token:
+            text += self.tokenizer.eos_token
+        ids = self.tokenizer(text, add_special_tokens=False)["input_ids"]
+
+        for start in range(0, len(ids) - self.seq_len + 1, self.stride):
+            window = ids[start : start + self.seq_len]
+            if len(window) == self.seq_len:
+                tensor = torch.tensor(window, dtype=torch.long)
+                yield {"input_ids": tensor, "labels": tensor.clone()}
+    # main iterator -----------------------------------------
+    def __iter__(self):
+        worker = get_worker_info()
+        if worker is not None:
+            shard_ds = self.dataset.shard(
+                num_shards = worker.num_workers,
+                index      = worker.id,
+                contiguous = True,
+            )
+        else:
+            shard_ds = self.dataset
+
+
+        for row in shard_ds:
+            yield from self._tokenise_and_yield(row[self.text_col])
+
+class StreamingSFTDataset(IterableDataset):
+
+    def __init__(
+        self,hf_ds_iter: "HFIterableDataset",tokenizer,system_message: str,
+        *,
+        input_column: str = "inputs",output_column: str = "outputs",reasoning_column: Optional[str] = None,seq_len: int = 1024,stride : int = 1,add_eos: bool = False,
+    ):
+        self.dataset = hf_ds_iter
+        self.tokenizer = tokenizer
+        self.sys_msg = system_message
+        self.in_col = input_column
+        self.out_col = output_column
+        self.reason_col = reasoning_column
+        self.seq_len = seq_len
+        self.stride = stride
+        self.add_eos = add_eos
+
+    from tokenizer import to_chat_text
+    def _fmt(role, content): return {"role": role, "content": content}
+
+    def _create_prompt(self, user, assistant, reasoning=None):
+        msgs = [self._fmt("system", self.sys_msg)]
+        if reasoning is not None:
+            reasoning = [reasoning] if isinstance(reasoning, str) else reasoning
+        if isinstance(user, str):      user      = [user]
+        if isinstance(assistant, str): assistant = [assistant]
+        if len(user) != len(assistant):
+            raise ValueError("input/output length mismatch")
+
+        for i in range(len(user)):
+            msgs.append(self._fmt("user", user[i]))
+            if reasoning is not None:
+                msgs.append(self._fmt("assistant", f"<thinking>{reasoning[i]}</thinking>"))
+            msgs.append(self._fmt("assistant", assistant[i]))
+        return msgs
+
+    # ──────────────────────────────────────────────────────────
+    def _render_and_tokenise(self, row: Dict):
+        # Format chat → plain string using HF chat template
+        rendered = self.tokenizer.apply_chat_template(
+            self._create_prompt(
+                row[self.in_col],
+                row[self.out_col],
+                row.get(self.reason_col) if self.reason_col else None,
+            ),
+            tokenize=False,
+        )
+        if self.add_eos and self.tokenizer.eos_token:
+            rendered += self.tokenizer.eos_token
+
+        ids = self.tokenizer(rendered, add_special_tokens=False)["input_ids"]
+        for start in range(0, len(ids) - self.seq_len + 1, self.stride):
+            window = ids[start : start + self.seq_len]
+            if len(window) == self.seq_len:
+                t = torch.tensor(window, dtype=torch.long)
+                yield {"input_ids": t, "labels": t.clone()}
+
+    def __iter__(self):
+        worker = get_worker_info()
+        ds = self.dataset.shard(worker.num_workers, worker.id, True) if worker else self.dataset
+        for row in ds:
+            yield from self._render_and_tokenise(row)
