@@ -9,10 +9,25 @@ import torch
 from torch import nn, optim
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data import DataLoader
-
 from tqdm.auto import tqdm
-
 import logger
+import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group, destroy_process_group
+import os
+
+def ddp_setup(rank, world_size, gpu_ids):
+    """
+    Args:
+        rank: Unique identifier of each process
+        world_size: Total number of processes
+        gpu_ids: List of GPU ids to use
+    """
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    torch.cuda.set_device(gpu_ids[rank])
+    init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
 @dataclass
 class Config:
@@ -45,7 +60,7 @@ class Config:
     seed: int = 42
     verbose: bool = True
     callbacks: List[Callable[["Trainer"], None]] = field(default_factory=list)
-
+    gpu_ids: List[int] = field(default_factory=lambda: list(range(torch.cuda.device_count())))  # <--- ADD THIS LINE
 
 class Trainer:
     """Fast yet readable training loop.
@@ -54,15 +69,26 @@ class Trainer:
     behaviour via ``Config.callbacks`` – each callback receives the Trainer
     instance at the end of every epoch, giving full read/write access.
     """
-
-    def __init__(self,run_name:str,cfg: Config):
+    def __init__(self, run_name: str, cfg: Config, ddp_rank: int = None, ddp_world_size: int = None):
         self.cfg = cfg
         torch.manual_seed(cfg.seed)
         torch.backends.cudnn.benchmark = True
 
-        self.device = torch.device(cfg.device)
+        # DDP logic
+        self.ddp = ddp_rank is not None and ddp_world_size is not None
+        if self.ddp:
+            self.rank = ddp_rank
+            self.world_size = ddp_world_size
+            self.gpu_id = cfg.gpu_ids[self.rank]
+            ddp_setup(self.rank, self.world_size, cfg.gpu_ids)
+            self.device = torch.device(f"cuda:{self.gpu_id}")
+        else:
+            self.device = torch.device(cfg.device)
+
         self.model = cfg.model.to(self.device)
-       
+        if self.ddp:
+            self.model = DDP(self.model, device_ids=[self.gpu_id])
+
         if cfg.compile and hasattr(torch, "compile"):
             self.model = torch.compile(self.model, mode="reduce-overhead")
 
@@ -78,20 +104,24 @@ class Trainer:
 
         self.global_step = 0
         
-        self.logger = logger.create_logger(run_name)
-        self.logger.log_model_info(self.model,batch_size = cfg.batch_size,optimizer = cfg.optimizer, epochs =cfg.epochs)
+        if not self.ddp or self.rank == 0:
+            self.logger = logger.create_logger(run_name)
+            self.logger.log_model_info(self.model,batch_size = cfg.batch_size,optimizer = cfg.optimizer, epochs =cfg.epochs)
 
     def _init_dataloader(self, dataset, train: bool) -> DataLoader:
         if dataset is None:
             return None
-        
+        sampler = None
+        if self.ddp and train:
+            sampler = DistributedSampler(dataset, num_replicas=self.world_size, rank=self.rank, shuffle=self.cfg.shuffle)
         return DataLoader(
             dataset,
             batch_size=self.cfg.batch_size,
-            shuffle=train and self.cfg.shuffle,
+            shuffle=(train and self.cfg.shuffle) if sampler is None else False,
             num_workers=self.cfg.num_workers,
             pin_memory=self.cfg.pin_memory,
             persistent_workers=self.cfg.num_workers > 0,
+            sampler=sampler,
         )
 
     def _init_optimizer(self) -> optim.Optimizer:
@@ -130,7 +160,6 @@ class Trainer:
         self.scaler.update()
         self.optimizer.zero_grad(set_to_none=True)
 
-        # Step the scheduler after optimizer step
 
         self.global_step += 1
         return loss.detach()
@@ -145,33 +174,39 @@ class Trainer:
     def fit(self):
         for epoch in range(1, self.cfg.epochs + 1):
             epoch_loss = 0.0
-            
+
             self.model.train()
+            if self.ddp and hasattr(self.train_loader.sampler, "set_epoch"):
+                self.train_loader.sampler.set_epoch(epoch)
             for batch in self.train_loader:
                 batch = self._move_to_device(batch)
                 loss = self.train_step(batch)
                 epoch_loss += loss.item()
-                self.logger.log_live_epoch(epoch,loss)
+                if not self.ddp or self.rank == 0:
+                    self.logger.log_live_epoch(epoch, loss)
 
             self.model.eval()
             epoch_loss /= len(self.train_loader)
             val_loss = self.validate() if self.valid_loader else None
 
-            if val_loss == None:
-                self.logger.log_epoch(epoch,epoch_loss,perplexity=math.exp(epoch_loss))
-            else:
-                self.logger.log_epoch(epoch,epoch_loss,perplexity=math.exp(epoch_loss),Val_Loss = val_loss)
+            if not self.ddp or self.rank == 0:
+                if val_loss is None:
+                    self.logger.log_epoch(epoch, epoch_loss, perplexity=math.exp(epoch_loss))
+                else:
+                    self.logger.log_epoch(epoch, epoch_loss, perplexity=math.exp(epoch_loss), Val_Loss=val_loss)
 
             if self.scheduler:
                 self.scheduler.step()
 
-
-            if epoch % self.cfg.save_every_n_epochs == 0:
+            if (not self.ddp or self.rank == 0) and epoch % self.cfg.save_every_n_epochs == 0:
                 self.save_checkpoint(f"epoch_{epoch}.pt")
                 self._prune_checkpoints(self.cfg.max_saves)
 
             for cb in self.cfg.callbacks:
                 cb(self)
+
+        if self.ddp:
+            destroy_process_group()
 
     def validate(self) -> float:
         if self.valid_loader is None:
@@ -200,7 +235,7 @@ class Trainer:
         torch.save(
             {
                 "model_state":      self.model.state_dict(),
-                "optimizer_state":  self.optimizer.state_dict(),
+                # "optimizer_state":  self.optimizer.state_dict(),
                 "scaler_state":     self.scaler.state_dict(),
                 "cfg":              asdict(self.cfg),
                 "global_step":      self.global_step,
@@ -211,7 +246,7 @@ class Trainer:
     def load_checkpoint(self, path: str):
         ckpt = torch.load(path, map_location=self.device)
         self.model.load_state_dict(ckpt["model_state"])
-        self.optimizer.load_state_dict(ckpt["optimizer_state"])
+        # self.optimizer.load_state_dict(ckpt["optimizer_state"])
         self.scaler.load_state_dict(ckpt["scaler_state"])
         self.global_step = ckpt.get("global_step", 0)
 
@@ -227,19 +262,3 @@ class Trainer:
         while len(files) > max_keep:
             oldest = files.pop(0)
             oldest.unlink(missing_ok=True)
-
-
-# if __name__ == "__main__":
-#     from torchvision.models import resnet18
-#     from torchvision.datasets import CIFAR10
-#     from torchvision import transforms
-
-#     tfm = transforms.Compose([transforms.ToTensor()])
-#     train_set = CIFAR10(root="./data", train=True, download=True, transform=tfm)
-#     val_set = CIFAR10(root="./data", train=False, download=True, transform=tfm)
-
-#     model = resnet18(num_classes=10)
-#     cfg = Config(model=model, train_dataset=train_set, valid_dataset=val_set,epochs=5, batch_size=128, compile=True)
-
-#     trainer = Trainer(cfg)
-#     trainer.fit()

@@ -28,10 +28,13 @@ class TextDataset(Dataset):
                 t += tokenizer.eos_token
             ids = tokenizer(t, add_special_tokens=False)["input_ids"]
 
-            for start in range(0, len(ids) - stride, stride):
+            for start in range(0, len(ids), stride):
                 window = ids[start : start + seq_len]
+                if len(window) == 0:
+                    break
                 if len(window) < seq_len:
-                    break                           
+                    pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
+                    window += [pad_token_id] * (seq_len - len(window))
                 samples.append(torch.tensor(window, dtype=torch.long))
 
         self.input_ids = torch.stack(samples)
