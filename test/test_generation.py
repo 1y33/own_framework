@@ -11,22 +11,17 @@ class Colors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-ckpt_dir = "GPULanguagerOnProblems"
+ckpt_dir = "model"
 
 tokenizer = AutoTokenizer.from_pretrained("nvidia/AceReason-Nemotron-7B",device_map="cuda")
-model     = AutoModelForCausalLM.from_pretrained(ckpt_dir,device_map="cuda")
+model = AutoModelForCausalLM.from_pretrained(ckpt_dir,device_map="cuda")
 model.eval()
 
 SYS_MSG = """
-You are GPUCodeReasoner-GPT, a large language model specializing in GPU programming, CUDA, and high-performance parallel computing.
-You will generate the most optimized kernel with all the optimization tehniques you know to this day 
-The reasoning should be short so think small
-generate code blocks and output only full kernel code
-
-Generate the kernel for the given user problem :
+You are a helpfull assitant that can reason about math problems.
 """.strip()
 
-user_problem = "Code me an optimized Cuda kernel for LayerNorm  "
+user_problem = "Solve what you want XD"
 
 dialogue = (
     "<|system|>\n"    + SYS_MSG + 
