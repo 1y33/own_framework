@@ -10,7 +10,6 @@ class PreTrain(Trainer):
         
         outputs = self.model(input_ids)
         
-        # Extract logits from HuggingFace model output
         if hasattr(outputs, 'logits'):
             logits = outputs.logits
         elif isinstance(outputs, dict) and 'logits' in outputs:
